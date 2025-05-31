@@ -1,6 +1,6 @@
 streamlit
 PyPDF2
-google-generativeai
+google.genai
 pytesseract
 Pillow
 pdf2image
