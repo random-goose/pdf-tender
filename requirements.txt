@@ -8,3 +8,4 @@ easyocr
 numpy
 torch
 torchvision
+poppler-utils
