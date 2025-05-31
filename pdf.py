@@ -114,8 +114,7 @@ if uploaded_file is not None:
                         
                         if ocr_text.strip():
                             st.session_state.pdf_text = ocr_text
-                            st.success(f"OCR completed for {uploaded_file.name}!")
-                            st.info("Text was extracted using OCR since the PDF contained images or scanned content.")
+                            st.success("Text was extracted using OCR since the PDF contained images or scanned content.")
                         else:
                             st.error("OCR failed to extract any text from the PDF.")
                 else:
