@@ -24,16 +24,7 @@ if 'gemini_model' not in st.session_state:
 if 'api_key_configured' not in st.session_state:
     st.session_state.api_key_configured = False
 
-api_key = st.text_input(
-    "Enter your API Key:",
-    type="password",
-    help="Enter your Google Gemini API key to enable AI features"
-)
-
-if api_key:
-    st.success("API Key provided ✓")
-else:
-    st.warning("API Key required for Q&A functionality")
+api_key = st.secrets["api_key"]
 
 # Function to extract text from PDF
 def extract_text_from_pdf(pdf_file):
