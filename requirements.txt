@@ -4,3 +4,7 @@ google.genai
 pytesseract
 Pillow
 pdf2image
+easyocr
+numpy
+torch
+torchvision
