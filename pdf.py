@@ -6,8 +6,8 @@ import tempfile
 from PIL import Image
 import pdf2image
 import io
-import easyocr
-import numpy as np  # <-- Add this import (was missing)
+import numpy as np
+import pytesseract  # <-- Add this import
 
 # Set page configuration
 st.set_page_config(page_title="PDF Tender", layout="wide")
@@ -24,16 +24,8 @@ if 'gemini_model' not in st.session_state:
     st.session_state.gemini_model = None
 if 'api_key_configured' not in st.session_state:
     st.session_state.api_key_configured = False
-if 'ocr_reader' not in st.session_state:  # <-- Cache the OCR reader
-    st.session_state.ocr_reader = None
 
 api_key = st.secrets["api_key"]
-
-# Function to get or create OCR reader (cached)
-@st.cache_resource
-def get_ocr_reader():
-    """Initialize and cache the EasyOCR reader"""
-    return easyocr.Reader(['en'], gpu=False)  # Explicitly disable GPU to avoid warnings
 
 # Function to extract text from PDF
 def extract_text_from_pdf(pdf_file):
@@ -44,31 +36,28 @@ def extract_text_from_pdf(pdf_file):
         text += page.extract_text()
     return text
 
-# Function to perform OCR on PDF using EasyOCR
+# Function to perform OCR on PDF using pytesseract
 def perform_ocr_on_pdf(pdf_file):
     """
-    Perform OCR on PDF using easyocr and pdf2image
+    Perform OCR on PDF using pytesseract and pdf2image
     """
     try:
-        # Get cached OCR reader
-        reader = get_ocr_reader()
-        
         # Convert PDF to images
         with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
             tmp_file.write(pdf_file.getvalue())
             tmp_path = tmp_file.name
 
         # Convert PDF pages to images
-        pages = pdf2image.convert_from_path(tmp_path)
+        pages = pdf2image.convert_from_bytes(pdf_file.getvalue())
+
 
         ocr_text = ""
 
         for page_num, page in enumerate(pages):
-            # Convert PIL Image to numpy array for easyocr
-            page_np = np.array(page)
+            # Convert PIL Image to RGB (pytesseract expects this)
+            page_rgb = page.convert('RGB')
             # Perform OCR on the page
-            result = reader.readtext(page_np, detail=0)
-            page_text = "\n".join(result)
+            page_text = pytesseract.image_to_string(page_rgb)
             ocr_text += f"\n--- Page {page_num + 1} ---\n"
             ocr_text += page_text
 
