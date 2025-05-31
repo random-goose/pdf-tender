@@ -1,11 +1,7 @@
 streamlit
 PyPDF2
-google.genai
 pytesseract
-Pillow
 pdf2image
-easyocr
+Pillow
 numpy
-torch
-torchvision
-poppler-utils
+google.genai
