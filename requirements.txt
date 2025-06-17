@@ -1,7 +1,7 @@
-streamlit
-PyPDF2
-pytesseract
-pdf2image
-Pillow
-numpy
-google.genai
+streamlit>=1.28.0
+PyPDF2>=3.0.0
+google-generativeai
+Pillow>=9.0.0
+pdf2image>=1.16.0
+pytesseract>=0.3.10
+numpy>=1.24.0
