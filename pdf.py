@@ -7,7 +7,14 @@ from PIL import Image
 import pdf2image
 import io
 import numpy as np
-import pytesseract  # <-- Add this import
+import pytesseract
+import os
+
+# Configure tesseract for Streamlit Cloud
+if os.path.exists('/usr/bin/tesseract'):
+    pytesseract.pytesseract.tesseract_cmd = '/usr/bin/tesseract'
+elif os.path.exists('/app/.apt/usr/bin/tesseract'):
+    pytesseract.pytesseract.tesseract_cmd = '/app/.apt/usr/bin/tesseract'
 
 # Set page configuration
 st.set_page_config(page_title="PDF Tender", layout="wide")
