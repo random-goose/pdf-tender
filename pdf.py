@@ -20,7 +20,7 @@ elif os.path.exists('/app/.apt/usr/bin/tesseract'):
 st.set_page_config(page_title="PDF Tender", layout="wide")
 
 # App title and description
-st.title("PDF Tender")
+st.title("Document Analyser")
 
 # Initialize session state variables if they don't exist
 if 'pdf_text' not in st.session_state:
