@@ -8,7 +8,7 @@ import pdf2image
 import io
 import numpy as np
 import pytesseract
-import os
+import hashlib
 
 # Configure tesseract for Streamlit Cloud
 if os.path.exists('/usr/bin/tesseract'):
@@ -18,6 +18,69 @@ elif os.path.exists('/app/.apt/usr/bin/tesseract'):
 
 # Set page configuration
 st.set_page_config(page_title="PDF Tender", layout="wide")
+
+# Authentication functions
+# def hash_password(password):
+#     """Hash password using SHA256"""
+#     return hashlib.sha256(str.encode(password)).hexdigest()
+
+def check_credentials(username, password):
+    """Check if provided credentials are valid"""
+    try:
+        # Get credentials from secrets
+        valid_username = st.secrets["auth"]["username"]
+        valid_password = st.secrets["auth"]["password"]
+        
+        # Check username and password
+        return username == valid_username and password == valid_password
+    except KeyError:
+        st.error("Authentication configuration not found in secrets.")
+        return False
+
+def login_form():
+    """Display login form"""
+    st.title("Document Analyser - Login")
+    
+    with st.form("login_form"):
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
+        submit_button = st.form_submit_button("Login")
+        
+        if submit_button:
+            if check_credentials(username, password):
+                st.session_state.authenticated = True
+                st.session_state.username = username
+                st.rerun()
+            else:
+                st.error("Invalid username or password")
+
+def logout():
+    """Logout function"""
+    st.session_state.authenticated = False
+    st.session_state.username = None
+    if 'pdf_text' in st.session_state:
+        del st.session_state.pdf_text
+    if 'file_name' in st.session_state:
+        del st.session_state.file_name
+    st.rerun()
+
+# Initialize session state for authentication
+if 'authenticated' not in st.session_state:
+    st.session_state.authenticated = False
+if 'username' not in st.session_state:
+    st.session_state.username = None
+
+# Check authentication
+if not st.session_state.authenticated:
+    login_form()
+    st.stop()
+
+# Main application (only shown if authenticated)
+# Add logout button in sidebar
+# with st.sidebar:
+st.write(f"Welcome, {st.session_state.username}!")
+if st.button("Logout"):
+    logout()
 
 # App title and description
 st.title("Document Analyser")
@@ -32,7 +95,11 @@ if 'gemini_model' not in st.session_state:
 if 'api_key_configured' not in st.session_state:
     st.session_state.api_key_configured = False
 
-api_key = st.secrets["api_key"]
+try:
+    api_key = st.secrets["api_key"]
+except KeyError:
+    st.error("API key not found in secrets configuration.")
+    st.stop()
 
 # Function to extract text from PDF
 def extract_text_from_pdf(pdf_file):
@@ -56,7 +123,6 @@ def perform_ocr_on_pdf(pdf_file):
 
         # Convert PDF pages to images
         pages = pdf2image.convert_from_bytes(pdf_file.getvalue())
-
 
         ocr_text = ""
 
