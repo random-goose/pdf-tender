@@ -39,7 +39,7 @@ def check_credentials(username, password):
 
 def login_form():
     """Display login form"""
-    st.title("Document Analyser - Login")
+    st.title("Ruthwik's Document Analyser - Login")
     
     with st.form("login_form"):
         username = st.text_input("Username")
@@ -83,7 +83,7 @@ if st.button("Logout"):
     logout()
 
 # App title and description
-st.title("Document Analyser")
+st.title("Ruthwik's Document Analyser")
 
 # Initialize session state variables if they don't exist
 if 'pdf_text' not in st.session_state:
