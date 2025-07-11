@@ -9,6 +9,9 @@ import io
 import numpy as np
 import pytesseract
 import hashlib
+from datetime import datetime
+import pandas as pd
+import re
 
 # Configure tesseract for Streamlit Cloud
 if os.path.exists('/usr/bin/tesseract'):
@@ -20,10 +23,6 @@ elif os.path.exists('/app/.apt/usr/bin/tesseract'):
 st.set_page_config(page_title="PDF Tender", layout="wide")
 
 # Authentication functions
-# def hash_password(password):
-#     """Hash password using SHA256"""
-#     return hashlib.sha256(str.encode(password)).hexdigest()
-
 def check_credentials(username, password):
     """Check if provided credentials are valid"""
     try:
@@ -39,7 +38,7 @@ def check_credentials(username, password):
 
 def login_form():
     """Display login form"""
-    st.title("Ruthwik's Document Analyser - Login")
+    st.title("Document Analyser - Login")
     
     with st.form("login_form"):
         username = st.text_input("Username")
@@ -62,7 +61,96 @@ def logout():
         del st.session_state.pdf_text
     if 'file_name' in st.session_state:
         del st.session_state.file_name
+    if 'chat_history' in st.session_state:
+        del st.session_state.chat_history
     st.rerun()
+
+def extract_csv_from_text(text):
+    """Extract CSV content from text that contains ```csv blocks"""
+    csv_pattern = r'```csv\s*\n(.*?)\n```'
+    matches = re.findall(csv_pattern, text, re.DOTALL)
+    return matches
+
+def display_csv_content(csv_content, chat_index, csv_index):
+    """Display CSV content as a table with download option"""
+    try:
+        # Parse CSV content
+        csv_io = io.StringIO(csv_content)
+        df = pd.read_csv(csv_io)
+        
+        # Display the table
+        st.dataframe(df, use_container_width=True)
+        
+        # Create download button
+        csv_bytes = csv_content.encode('utf-8')
+        filename = f"extracted_data_{chat_index}_{csv_index}.csv"
+        
+        st.download_button(
+            label="Download CSV",
+            data=csv_bytes,
+            file_name=filename,
+            mime="text/csv",
+            key=f"download_{chat_index}_{csv_index}"
+        )
+        
+    except Exception as e:
+        st.error(f"Error parsing CSV: {e}")
+        st.text("Raw CSV content:")
+        st.code(csv_content, language='csv')
+
+def process_answer_with_csv(answer, chat_index):
+    """Process answer to extract and display CSV content"""
+    # Extract CSV blocks
+    csv_blocks = extract_csv_from_text(answer)
+    
+    if csv_blocks:
+        # Split the answer into parts
+        parts = re.split(r'```csv\s*\n.*?\n```', answer, flags=re.DOTALL)
+        
+        # Display text and CSV blocks alternately
+        for i, part in enumerate(parts):
+            if part.strip():
+                st.markdown(part.strip())
+            
+            # Display CSV block if it exists
+            if i < len(csv_blocks):
+                st.subheader(f"Data Table {i + 1}")
+                display_csv_content(csv_blocks[i], chat_index, i)
+                st.markdown("---")
+    else:
+        # No CSV blocks found, display as regular text
+        st.markdown(answer)
+
+def add_to_chat_history(question, answer):
+    """Add a question-answer pair to chat history"""
+    if 'chat_history' not in st.session_state:
+        st.session_state.chat_history = []
+    
+    chat_entry = {
+        'question': question,
+        'answer': answer,
+        'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+    
+    st.session_state.chat_history.append(chat_entry)
+
+def display_chat_history():
+    """Display the chat history with CSV processing"""
+    if 'chat_history' in st.session_state and st.session_state.chat_history:
+        st.subheader("Chat History")
+        
+        # Display in reverse order (newest first)
+        for idx, chat in enumerate(reversed(st.session_state.chat_history)):
+            chat_index = len(st.session_state.chat_history) - idx - 1
+            
+            # Create an expander for each chat entry
+            with st.expander(f"Q: {chat['question'][:100]}{'...' if len(chat['question']) > 100 else ''}", expanded=(idx == 0)):
+                st.markdown(f"**Question:** {chat['question']}")
+                st.markdown(f"**Asked at:** {chat['timestamp']}")
+                st.markdown("**Answer:**")
+                
+                # Process the answer for CSV content
+                process_answer_with_csv(chat['answer'], chat_index)
 
 # Initialize session state for authentication
 if 'authenticated' not in st.session_state:
@@ -76,14 +164,12 @@ if not st.session_state.authenticated:
     st.stop()
 
 # Main application (only shown if authenticated)
-# Add logout button in sidebar
-# with st.sidebar:
 st.write(f"Welcome, {st.session_state.username}!")
 if st.button("Logout"):
     logout()
 
 # App title and description
-st.title("Ruthwik's Document Analyser")
+st.title("Document Analyser")
 
 # Initialize session state variables if they don't exist
 if 'pdf_text' not in st.session_state:
@@ -94,6 +180,8 @@ if 'gemini_model' not in st.session_state:
     st.session_state.gemini_model = None
 if 'api_key_configured' not in st.session_state:
     st.session_state.api_key_configured = False
+if 'chat_history' not in st.session_state:
+    st.session_state.chat_history = []
 
 try:
     api_key = st.secrets["api_key"]
@@ -167,6 +255,8 @@ uploaded_file = st.file_uploader("Upload a PDF document", type=['pdf'])
 if uploaded_file is not None:
     if st.session_state.file_name != uploaded_file.name:
         st.session_state.file_name = uploaded_file.name
+        # Clear chat history when new file is uploaded
+        st.session_state.chat_history = []
 
         with st.spinner("Extracting text from PDF..."):
             # Create a temporary file
@@ -220,40 +310,54 @@ if api_key and not st.session_state.api_key_configured:
 # Q&A Section
 if st.session_state.pdf_text:
     st.header("Ask questions about your PDF")
-    user_question = st.text_input("Enter your question:")
+    
+    # Display chat history
+    if st.session_state.chat_history:
+        display_chat_history()
+        st.markdown("---")
+    
+    # Use a form to handle input and automatic clearing
+    with st.form("question_form", clear_on_submit=True):
+        user_question = st.text_input("Enter your question:")
+        submit_button = st.form_submit_button("Ask Question")
+        
+        if submit_button and user_question.strip():
+            if not st.session_state.api_key_configured:
+                if not configure_gemini_api():
+                    st.stop()
 
-    if user_question:
-        if not st.session_state.api_key_configured:
-            if not configure_gemini_api():
-                st.stop()
+            with st.spinner("Generating answer..."):
+                try:
+                    # Create a prompt that includes the PDF text and the user's question
+                    prompt = f"""
+                    Here is the text extracted from a tender document:
 
-        with st.spinner("Generating answer..."):
-            try:
-                # Create a prompt that includes the PDF text and the user's question
-                prompt = f"""
-                Here is the text extracted from a tender document:
+                    {st.session_state.pdf_text}
 
-                {st.session_state.pdf_text}
+                    Based on the above content, please answer the following question:
+                    {user_question}.
 
-                Based on the above content, please answer the following question:
-                {user_question}
+                    If the reply you want to give consists of a csv, please format it with ```csv and ``` at the start and end of the csv content.
 
-                If the information to answer the question is not present in the text, please state that clearly.
-                """
+                    If the information to answer the question is not present in the text, please state that clearly.
+                    """
 
-                # Send the prompt to Gemini API
-                response = st.session_state.gemini_model.models.generate_content(
-                    model="gemini-2.0-flash", 
-                    contents=prompt
-                )
+                    # Send the prompt to Gemini API
+                    response = st.session_state.gemini_model.models.generate_content(
+                        model="gemini-2.0-flash", 
+                        contents=prompt
+                    )
 
-                # Display the response
-                st.subheader("Answer:")
-                st.markdown(response.text)
+                    # Add to chat history
+                    add_to_chat_history(user_question, response.text)
 
-            except Exception as e:
-                st.error(f"Error querying Gemini API: {e}")
-                st.error("Please check your API key and try again.")
+                    # Rerun to refresh the display
+                    st.rerun()
+
+                except Exception as e:
+                    st.error(f"Error querying Gemini API: {e}")
+                    st.error("Please check your API key and try again.")
+
 else:
     if uploaded_file is None:
         st.info("Please upload a PDF file to get started.")
