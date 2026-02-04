@@ -243,7 +243,7 @@ if st.session_state.pdf_text:
 
                 # Send the prompt to Gemini API
                 response = st.session_state.gemini_model.models.generate_content(
-                    model="gemini-2.0-flash", 
+                    model="gemini-3-flash-preview", 
                     contents=prompt
                 )
 
